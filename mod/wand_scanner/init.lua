@@ -2,7 +2,7 @@
 -- Simulation uses Noita's own gun.lua (see wandsim.lua); results show in an overlay.
 dofile_once("mods/wand_scanner/wandsim.lua")
 
-local VERSION = "v10" -- shown in the panel title, so you can tell which build is loaded
+local VERSION = "v11" -- shown in the panel title, so you can tell which build is loaded
 
 local INTERVAL = 30        -- frames between inventory checks (~0.5 s)
 local EVALS = 1500         -- search steps per wand
@@ -251,6 +251,7 @@ end
 ---------------------------------------------------------------------------
 local results, progress = nil, nil
 local results_state = nil -- the inventory scan the current results were computed from
+local recipes = {}        -- known combos you have (or are one spell short of)
 local exclude_explosives = false -- toggled from the panel
 local job, last_sig = nil, nil
 
@@ -262,6 +263,10 @@ local function search_all(state)
     end
   end
   for _, s in ipairs(state.loose) do pool[#pool + 1] = s end
+  local carried = {}
+  for _, w in ipairs(state.wands) do for _, s in ipairs(w.spells) do carried[#carried + 1] = s end end
+  for _, s in ipairs(state.loose) do carried[#carried + 1] = s end
+  local found = WandSim.recipes(carried)
   if exclude_explosives then
     local kept = {}
     for _, s in ipairs(pool) do
@@ -283,7 +288,7 @@ local function search_all(state)
     out[i] = { wand = w, now = now, best = best }
   end
   -- The wand that can reach the highest DPS with the spells you're carrying.
-  results, progress, results_state = out, nil, state
+  results, progress, results_state, recipes = out, nil, state, found
 end
 
 local function step_search()
@@ -380,9 +385,19 @@ local function draw()
     w = math.max(w, head_w, icons_w)
     lines[i] = { head = head, can_apply = can_apply, unchanged = unchanged, note = note }
   end
+  local recipe_line
+  if results and #recipes > 0 then
+    local parts = {}
+    for _, r in ipairs(recipes) do
+      local miss = r.missing[1] and WandSim.actions[r.missing[1]]
+      parts[#parts + 1] = r.name .. (miss and (" (need " .. GameTextGetTranslatedOrNot(miss.name) .. ")") or " (ready)")
+    end
+    recipe_line = "Recipes: " .. table.concat(parts, ", ")
+    w = math.max(w, text_w(recipe_line))
+  end
   w = w + 2 * PAD
   local BLOCK = LINE + ICON + 5
-  local h = 2 * PAD + LINE + 4 + math.max(#rows, 1) * BLOCK
+  local h = 2 * PAD + LINE + 4 + math.max(#rows, 1) * BLOCK + (recipe_line and LINE or 0)
   local x0, y0 = (sw - w) / 2, sh - h - 10
 
   GuiZSetForNextWidget(gui, 10) -- behind the icons and text
@@ -426,6 +441,7 @@ local function draw()
     end
     y = y + BLOCK
   end
+  if recipe_line then text(x0 + PAD, y, recipe_line) end
 end
 
 ---------------------------------------------------------------------------

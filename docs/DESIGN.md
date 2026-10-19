@@ -49,6 +49,12 @@ Damage that only exists at runtime is recognised by rule and scored `INF`:
   `TENTACLE_TIMER` before `OMEGA`, `SPELLS_TO_POWER` on the same wand, and enough max mana for the
   three. (Presence + order + mana only.)
 
+### Recipes
+
+`M.RECIPES` lists known runtime combos as spell ids (a list = any one of them). The panel shows
+the ones you carry (any wand or loose) or are one spell short of. They also serve as seeds for the
+planned discovery search.
+
 ### Known limits
 
 - One target at a fixed distance; no terrain, bounces off walls, crowds or bosses.

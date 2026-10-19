@@ -100,6 +100,7 @@ function GamePrint(s) print(s) end
 function dofile_once(p) local f = assert(loadstring(ModTextFileGetContent(p), p)); f() end
 ''')
 L.execute(read("mods/wand_scanner/init.lua"))
+L.execute('WandSim.RECIPES = { { name = "Test combo", parts = { "DAMAGE", { "BOMB" }, "OMEGA" } } }')  # one spell short
 
 calls = lambda: list(g.calls.values())
 g.OnWorldPostUpdate()
@@ -131,6 +132,7 @@ def check_layout():
 out = check_layout()
 print("\n".join(out))
 assert any(c.startswith("TEXT") and "Wands v" in c for c in out)
+assert any("Recipes: Test combo (need $action_omega)" in c for c in out)
 assert "COLOR" in out and any(c.startswith("TOOLTIP") for c in out)
 print(f"\nlayout ok, no overlaps (search finished in ~{frames_used} frames)")
 

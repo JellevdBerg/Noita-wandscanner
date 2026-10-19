@@ -329,6 +329,31 @@ function M.infinite_loop(wand, spells)
   return tentacle ~= nil and omega ~= nil and stp and tentacle < omega and cost <= wand.mana_max
 end
 
+---------------------------------------------------------------------------
+-- Recipes: known runtime combos, matched against the spells you carry.
+-- Each part is a spell id, or a list of ids where any one will do. Add your own here.
+---------------------------------------------------------------------------
+M.RECIPES = {
+  { name = "Omega-Tentacle loop", parts = { { "TENTACLE", "TENTACLE_TIMER" }, "OMEGA", "SPELLS_TO_POWER" } },
+  { name = "Sticky piercing trigger", parts = { "BUBBLESHOT_TRIGGER", "PIERCING_SHOT", "HOMING", "LONG_DISTANCE_CAST" } },
+}
+
+-- pool: list of { id }. Returns recipes missing at most one part: { name, missing = {ids} }
+function M.recipes(pool)
+  local have, out = {}, {}
+  for _, s in ipairs(pool) do have[s.id] = true end
+  for _, r in ipairs(M.RECIPES) do
+    local missing = {}
+    for _, part in ipairs(r.parts) do
+      local opts, ok = type(part) == "table" and part or { part }, false
+      for _, id in ipairs(opts) do ok = ok or have[id] == true end
+      if not ok then missing[#missing + 1] = opts[1] end
+    end
+    if #missing <= 1 then out[#out + 1] = { name = r.name, missing = missing } end
+  end
+  return out
+end
+
 -- spells: list of { id, uses, always_cast }
 function M.dps(wand, spells)
   if M.infinite_loop(wand, spells) then return math.huge end

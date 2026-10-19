@@ -35,3 +35,10 @@ print("lua ok")
 assert W.is_physics_explosive("BOMB") and not W.is_physics_explosive("LIGHT_BULLET") \
     and not W.is_physics_explosive("BOUNCY_ORB")
 print("explosive filter ok")
+
+ids = lambda *xs: t([{"id": x} for x in xs])
+found = {r.name: list(r.missing.values()) for r in W.recipes(ids("TENTACLE_TIMER", "OMEGA", "SPELLS_TO_POWER", "HOMING")).values()}
+assert found == {"Omega-Tentacle loop": []}, found  # sticky trigger is 3 short: not shown
+found = {r.name: list(r.missing.values()) for r in W.recipes(ids("OMEGA", "SPELLS_TO_POWER")).values()}
+assert found == {"Omega-Tentacle loop": ["TENTACLE"]}, found
+print("recipes ok")
