@@ -1,0 +1,6 @@
+<Mod
+  name="Wand Scanner"
+  description="Dumps your wands and spells to JSON for an external optimizer."
+  request_no_api_restrictions="1"
+>
+</Mod>

@@ -1,0 +1,4 @@
+state.json
+results.txt
+__pycache__/
+*.pyc
