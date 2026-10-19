@@ -15,6 +15,8 @@ and a damage meter that measures what your wands really do in fights.
   Long Distance Cast payloads spawning at the target.
 - **Exploit loops** — known runtime-only loops (Omega–Tentacle + Spells to Power) are recognised and
   scored as `INF`.
+- **Recipes** — a panel line lists known runtime combos you carry, or are one spell short of
+  ("need Homing"). Edit `M.RECIPES` in `wandsim.lua` to add your own.
 - **[apply]** — rearranges your actual spells into the suggested build. Frozen and always-cast
   spells are never moved.
 - **Damage meter** — hooks nearby enemies and credits the damage you deal to the wand in your
