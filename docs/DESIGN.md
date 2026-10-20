@@ -95,3 +95,9 @@ For builds measured in the real engine. One dummy with ~1e30 HP; damage is logge
 highest tier of cumulative damage crossed (1e3, 1e6, 1e9, 1e30), then by time to the top tier (or by total
 damage when the dummy survived: censored), then by self-damage. `runaway` = damage per second at least
 doubled for 3 seconds in a row (thresholds to be refit on calibration data). Test: `tests/test_labscore.py`.
+
+## Lab launcher (`lab.bat` / `lab.ps1`)
+
+Zips `save00` and `save_shared` to `D:\NoitaBackups\` (keeps 5), sets `application_pause_when_unfocused="0"`
+and disables every mod except this one, runs `noita.exe` and waits, then restores the zip. A marker file
+(`LAB_ACTIVE.txt`) makes the next start restore first if a session was cut short. Log: `lab_launcher.log`.
