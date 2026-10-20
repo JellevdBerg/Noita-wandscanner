@@ -107,7 +107,8 @@ and disables every mod except this one, runs `noita.exe` and waits, then restore
 `lab.ps1` writes `lab_mode.txt` next to the mod; `init.lua` then skips the panel and runs `LabMode.update`.
 The player is pinned 400 px above the spawn with `ControlsComponent` disabled so the lab drives fire and aim,
 HP is refilled every frame (lost HP = self-damage), and the game's `dummy_target.xml` (HP 1e30) is pinned
-100 px to the right with `damage_hook.lua`. Each queued build gets a fresh wand (`lab_wand.xml`), 600 frames
+100 px to the right with `damage_hook.lua`. Each queued build is written onto the wand you spawn holding (a wand the mod creates is
+never really equipped), 600 frames
 of fire plus 60 of tail, logged per second to `<Noita>/wand_scanner_data/calibration.csv`. Watchdog: more
 than 3000 projectiles aborts the run. The queue starts with short probes of different ways to press fire
 (`PlatformShooterPlayerComponent.mForceFireOnNextUpdate`, controls on or off; pressing fire via

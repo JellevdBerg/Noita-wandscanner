@@ -45,9 +45,10 @@ end
 
 local function comp(e, name) return EntityGetFirstComponentIncludingDisabled(e, name) end
 
-local function make_wand(b, player)
-  local x, y = EntityGetTransform(player)
-  local w = EntityLoad("mods/wand_scanner/lab_wand.xml", x, y)
+-- Rebuilds the wand you spawn holding. A wand created by the mod and set as mActiveItem was never
+-- really equipped (runs 1-4: no shots until Thomas pressed 1), so the lab keeps the starting wand in hand.
+local function set_wand(w, b)
+  for _, card in ipairs(EntityGetAllChildren(w) or {}) do EntityKill(card) end
   local ab = comp(w, "AbilityComponent")
   ComponentObjectSetValue2(ab, "gun_config", "deck_capacity", b.capacity)
   ComponentObjectSetValue2(ab, "gun_config", "actions_per_round", b.spells_per_cast)
@@ -65,11 +66,7 @@ local function make_wand(b, player)
     EntitySetComponentsWithTagEnabled(card, "enabled_in_world", false)
     if s.uses then ComponentSetValue2(comp(card, "ItemComponent"), "uses_remaining", s.uses) end
   end
-  GamePickUpInventoryItem(player, w, false)
-  local inv = comp(player, "Inventory2Component")
-  ComponentSetValue2(inv, "mActiveItem", w)
-  ComponentSetValue2(inv, "mForceRefresh", true)
-  return w
+  ComponentSetValue2(comp(EntityGetRootEntity(w), "Inventory2Component"), "mForceRefresh", true)
 end
 
 local function kill_projectiles()
@@ -79,9 +76,13 @@ end
 local function setup(player)
   local x, y = EntityGetTransform(player)
   st = { px = x, py = y - 400, i = 0, frame = -SETTLE } -- in the sky above the spawn: open air
+  st.wand = ComponentGetValue2(comp(player, "Inventory2Component"), "mActualActiveItem")
   for _, child in ipairs(EntityGetAllChildren(player) or {}) do
     if EntityGetName(child) == "inventory_quick" then
-      for _, item in ipairs(EntityGetAllChildren(child) or {}) do EntityKill(item) end -- lab only: saves are restored after
+      for _, item in ipairs(EntityGetAllChildren(child) or {}) do -- lab only: saves are restored after
+        if (st.wand or 0) == 0 and comp(item, "AbilityComponent") then st.wand = item end -- nothing in hand yet
+        if item ~= st.wand then EntityKill(item) end
+      end
     end
   end
   local dmg = comp(player, "DamageModelComponent")
@@ -163,10 +164,9 @@ function M.update(player)
       if st.frame > 180 and os and os.exit then os.exit(0) end
       return
     end
-    if st.wand then EntityKill(st.wand) end
     kill_projectiles()
     new_dummy()
-    st.wand = make_wand(job.build, player)
+    set_wand(st.wand, job.build)
     st.run = { job = { build = job.build, rep = job.rep, fire = job.fire or FIRE }, method = method, probe = job.method,
       second = 1, bin_dmg = 0, bin_self = 0, bin_peak = 0, bin_frames = 0, bin_wall = os.clock(),
       bin_held = 0, bin_mana = math.huge }
@@ -175,7 +175,7 @@ function M.update(player)
   end
 
   press(player)
-  if ComponentGetValue2(comp(player, "Inventory2Component"), "mActiveItem") == st.wand then r.bin_held = 1 end
+  if ComponentGetValue2(comp(player, "Inventory2Component"), "mActualActiveItem") == st.wand then r.bin_held = 1 end
   r.bin_mana = math.min(r.bin_mana, ComponentGetValue2(comp(st.wand, "AbilityComponent"), "mana"))
 
   local n = #(EntityGetWithTag("projectile") or {})

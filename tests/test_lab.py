@@ -38,6 +38,8 @@ function GlobalsGetValue(k, d) return globals[k] or d end
 function GlobalsSetValue(k, v) globals[k] = v end
 function GameGetFrameNum() return frame end
 function GamePrint(s) print(s) end
+function EntityGetRootEntity() return 1 end
+comps["1:Inventory2Component"] = { mActualActiveItem = 50 } -- the starting wand in hand
 exited = false
 os.exit = function() exited = true end
 ''')
@@ -51,7 +53,7 @@ for f in range(1, 30000):
     # pretend only forced fire with controls on works (unknown in the real game)
     if c and c.enabled and shooter and shooter.mForceFireOnNextUpdate:  # the fake wand: 4 damage per frame (/25 units)
         g.globals["wand_scanner_dmg"] = str(float(g.globals["wand_scanner_dmg"] or 0) + 4 / 25)
-        omega = g.comps["1:Inventory2Component"].mActiveItem >= 130  # the Omega runs come last
+        omega = g.comps["50:AbilityComponent"].mana_max == 757
         g.projectiles = 5000 if omega and f % 700 > 300 else 3
     else:
         g.projectiles = 0
