@@ -24,11 +24,13 @@ function EntityGetTransform() return 0, 0 end
 function EntitySetTransform() end
 function EntityLoad() return new() end
 function CreateItemActionEntity() return new() end
-function EntityAddChild() end
+kids = { [50] = { 40, 41 } } -- the starting wand holds two cards
+function EntityAddChild(p, e) kids[p] = kids[p] or {}; table.insert(kids[p], e) end
+function EntityRemoveFromParent(e) for _, l in pairs(kids) do for i, k in ipairs(l) do if k == e then table.remove(l, i) end end end end
 function EntitySetComponentsWithTagEnabled() end
 function GamePickUpInventoryItem() end
 function EntityAddComponent2() end
-function EntityGetAllChildren() return {} end
+function EntityGetAllChildren(e) local l = {}; for i, k in ipairs(kids[e] or {}) do l[i] = k end; return l end
 function EntityGetName() return "" end
 function EntityKill(e) alive[e] = nil end
 function EntityGetIsAlive(e) return alive[e] == true end
@@ -47,11 +49,10 @@ g = L.globals()
 ctl = "1:ControlsComponent"
 for f in range(1, 30000):
     g.frame = f
-    lab.pre_update(1)
     lab.update(1)
     c, shooter = g.comps[ctl], g.comps["1:PlatformShooterPlayerComponent"]
-    # pretend only forced fire with controls on works (unknown in the real game)
-    if c and c.enabled and shooter and shooter.mForceFireOnNextUpdate:  # the fake wand: 4 damage per frame (/25 units)
+    # as in the real game (run 5): forced fire works; aim stays ours only with controls off
+    if c and c.enabled == False and shooter and shooter.mForceFireOnNextUpdate:  # the fake wand: 4 damage per frame (/25 units)
         g.globals["wand_scanner_dmg"] = str(float(g.globals["wand_scanner_dmg"] or 0) + 4 / 25)
         omega = g.comps["50:AbilityComponent"].mana_max == 757
         g.projectiles = 5000 if omega and f % 700 > 300 else 3
@@ -59,14 +60,15 @@ for f in range(1, 30000):
         g.projectiles = 0
 
 rows = list(csv.reader(open("wand_scanner_data/calibration.csv")))
-assert rows[0][:4] == ["build", "rep", "method", "second"], rows[0]
+assert rows[0][:3] == ["build", "rep", "second"], rows[0]
 bolt = [r for r in rows[1:] if r[0] == "Bolt staff" and r[1] != "0"]  # rep 0 = probe runs
 assert len({r[1] for r in bolt}) == 10, "10 repeats"
 first = [r for r in bolt if r[1] == "1"]
-assert all(float(r[4]) == 0 for r in rows[1:] if r[2] == "force_disabled"), "probe that doesn't fire logs nothing"
-assert len(first) == 11 and float(first[1][4]) == 240, first  # 60 frames x 4 damage
-assert sum(float(r[4]) for r in first) == 600 * 4 and float(first[0][5]) == 0, first  # damage seen a frame late lands in the tail bin
-assert any(r[0] == "Omega loop" and r[3] == "WATCHDOG" for r in rows), "runaway aborted by watchdog"
-assert all(r[2] == "force" for r in rows[1:] if r[0] == "Omega loop"), "queue uses the first method that fired"
+assert len(first) == 11 and float(first[1][3]) == 240, first  # 60 frames x 4 damage
+assert sum(float(r[3]) for r in first) == 600 * 4 and float(first[0][4]) == 0, first  # damage seen a frame late lands in the tail bin
+assert any(r[0] == "Omega loop" and r[2] == "WATCHDOG" for r in rows), "runaway aborted by watchdog"
+cards = list(g.kids[50].values())
+assert len(cards) == 6 and 40 not in cards, cards  # the Omega build replaced the old cards on the same wand
+assert [g.comps["%d:ItemComponent" % c].inventory_slot for c in cards] == list(range(6))  # slot x, in order
 assert g.exited, "closes the game when done"
 print("lab ok")

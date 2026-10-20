@@ -110,8 +110,8 @@ HP is refilled every frame (lost HP = self-damage), and the game's `dummy_target
 100 px to the right with `damage_hook.lua`. Each queued build is written onto the wand you spawn holding (a wand the mod creates is
 never really equipped), 600 frames
 of fire plus 60 of tail, logged per second to `<Noita>/wand_scanner_data/calibration.csv`. Watchdog: more
-than 3000 projectiles aborts the run. The queue starts with short probes of different ways to press fire
-(`PlatformShooterPlayerComponent.mForceFireOnNextUpdate`, controls on or off; pressing fire via
-ControlsComponent fired nothing in game) and uses the first
-that fires. When the queue is done the game closes itself (`os.exit`) so the launcher restores the saves.
+than 3000 projectiles aborts the run. Fire is forced with `PlatformShooterPlayerComponent.mForceFireOnNextUpdate`
+with `ControlsComponent` disabled (pressing fire through ControlsComponent never fired; with controls on, the
+real mouse moves the aim). Spells are swapped like [apply]: detach, add, set slot, `mForceRefresh`. When the
+queue is done the game closes itself (`os.exit`) so the launcher restores the saves.
 Test: `tests/test_lab.py` (fake engine).
