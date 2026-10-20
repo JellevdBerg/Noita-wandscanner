@@ -88,3 +88,10 @@ between sessions.
    dummy and reports measured DPS. Two instances run fine but share `save00` (no option to change
    the save folder), so the bench must run sandboxed, e.g. via Sandboxie-Plus. Still to check:
    whether a sandboxed Noita starts, and whether it keeps simulating while unfocused.
+
+## Lab scoring (`labscore.lua`, not wired in yet)
+
+For builds measured in the real engine. One dummy with ~1e30 HP; damage is logged per second. Rank by the
+highest tier of cumulative damage crossed (1e3, 1e6, 1e9, 1e30), then by time to the top tier (or by total
+damage when the dummy survived: censored), then by self-damage. `runaway` = damage per second at least
+doubled for 3 seconds in a row (thresholds to be refit on calibration data). Test: `tests/test_labscore.py`.
