@@ -39,13 +39,13 @@ end
 
 local function comp(e, name) return EntityGetFirstComponentIncludingDisabled(e, name) end
 
--- Rebuilds the wand you spawn holding. A wand created by the mod and set as mActiveItem was never
--- really equipped (runs 1-4: no shots until Thomas pressed 1), so the lab keeps the starting wand in hand.
-local function set_wand(w, b)
-  for _, card in ipairs(EntityGetAllChildren(w) or {}) do
-    EntityRemoveFromParent(card) -- now, not at the end of the frame like EntityKill
-    EntityKill(card)
-  end
+-- A fresh wand per build, made the way the game makes wands (cards added before pickup). Rewriting the
+-- held wand's cards never changed what it fired (runs 6-7), while a spawned wand fired its own spells
+-- once equipped (run 4, after Thomas pressed 1).
+local EQUIP_FRAMES = 30 -- frames before each run to get the new wand into your hand
+local function make_wand(b, player)
+  local x, y = EntityGetTransform(player)
+  local w = EntityLoad("mods/wand_scanner/lab_wand.xml", x, y)
   local ab = comp(w, "AbilityComponent")
   ComponentObjectSetValue2(ab, "gun_config", "deck_capacity", b.capacity)
   ComponentObjectSetValue2(ab, "gun_config", "actions_per_round", b.spells_per_cast)
@@ -57,7 +57,7 @@ local function set_wand(w, b)
   ComponentSetValue2(ab, "mana_max", b.mana_max)
   ComponentSetValue2(ab, "mana", b.mana_max)
   ComponentSetValue2(ab, "mana_charge_speed", b.mana_charge)
-  for i, s in ipairs(b.spells) do -- same steps as [apply], which works in game: parent, slot, refresh
+  for i, s in ipairs(b.spells) do
     local card = CreateItemActionEntity(s.id)
     EntitySetComponentsWithTagEnabled(card, "enabled_in_world", false)
     EntityAddChild(w, card)
@@ -65,7 +65,19 @@ local function set_wand(w, b)
     ComponentSetValue2(item, "inventory_slot", i - 1, 0)
     if s.uses then ComponentSetValue2(item, "uses_remaining", s.uses) end
   end
-  ComponentSetValue2(comp(EntityGetRootEntity(w), "Inventory2Component"), "mForceRefresh", true)
+  GamePickUpInventoryItem(player, w, false)
+  return w
+end
+
+-- Put the wand in hand. Setting mActiveItem alone didn't (runs 1-4); clearing mActualActiveItem makes the
+-- game redo the equip. Repeated every frame until the game reports it in hand.
+local function equip(player, w)
+  local inv = comp(player, "Inventory2Component")
+  if ComponentGetValue2(inv, "mActualActiveItem") == w then return true end
+  ComponentSetValue2(inv, "mActiveItem", w)
+  ComponentSetValue2(inv, "mActualActiveItem", 0)
+  ComponentSetValue2(inv, "mForceRefresh", true)
+  return false
 end
 
 local function kill_projectiles()
@@ -75,13 +87,9 @@ end
 local function setup(player)
   local x, y = EntityGetTransform(player)
   st = { px = x, py = y - 400, i = 0, frame = -SETTLE } -- in the sky above the spawn: open air
-  st.wand = ComponentGetValue2(comp(player, "Inventory2Component"), "mActualActiveItem")
   for _, child in ipairs(EntityGetAllChildren(player) or {}) do
     if EntityGetName(child) == "inventory_quick" then
-      for _, item in ipairs(EntityGetAllChildren(child) or {}) do -- lab only: saves are restored after
-        if (st.wand or 0) == 0 and comp(item, "AbilityComponent") then st.wand = item end -- nothing in hand yet
-        if item ~= st.wand then EntityKill(item) end
-      end
+      for _, item in ipairs(EntityGetAllChildren(child) or {}) do EntityKill(item) end -- lab only: saves are restored after
     end
   end
   local dmg = comp(player, "DamageModelComponent")
@@ -153,10 +161,16 @@ function M.update(player)
     end
     kill_projectiles()
     new_dummy()
-    set_wand(st.wand, job.build)
+    if st.wand then EntityKill(st.wand) end
+    st.wand = make_wand(job.build, player)
     st.run = { job = job, second = 1, bin_dmg = 0, bin_self = 0, bin_peak = 0, bin_frames = 0, bin_wall = os.clock(),
       bin_held = 0, bin_mana = math.huge }
-    st.frame = 0
+    st.frame = -EQUIP_FRAMES
+    return
+  end
+  if st.frame <= 0 then -- equip phase: not timed, not logged
+    equip(player, st.wand)
+    r.bin_wall = os.clock()
     return
   end
 

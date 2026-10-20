@@ -24,7 +24,7 @@ function EntityGetTransform() return 0, 0 end
 function EntitySetTransform() end
 function EntityLoad() return new() end
 function CreateItemActionEntity() return new() end
-kids = { [50] = { 40, 41 } } -- the starting wand holds two cards
+kids = {}
 function EntityAddChild(p, e) kids[p] = kids[p] or {}; table.insert(kids[p], e) end
 function EntityRemoveFromParent(e) for _, l in pairs(kids) do for i, k in ipairs(l) do if k == e then table.remove(l, i) end end end end
 function EntitySetComponentsWithTagEnabled() end
@@ -40,8 +40,7 @@ function GlobalsGetValue(k, d) return globals[k] or d end
 function GlobalsSetValue(k, v) globals[k] = v end
 function GameGetFrameNum() return frame end
 function GamePrint(s) print(s) end
-function EntityGetRootEntity() return 1 end
-comps["1:Inventory2Component"] = { mActualActiveItem = 50 } -- the starting wand in hand
+comps["1:Inventory2Component"] = { mActualActiveItem = 0 }
 exited = false
 os.exit = function() exited = true end
 ''')
@@ -50,11 +49,15 @@ ctl = "1:ControlsComponent"
 for f in range(1, 30000):
     g.frame = f
     lab.update(1)
+    inv = g.comps["1:Inventory2Component"]
+    if inv.mActualActiveItem == 0 and inv.mActiveItem:  # the fake engine equips a frame later
+        inv.mActualActiveItem = inv.mActiveItem
+    held = inv.mActualActiveItem
     c, shooter = g.comps[ctl], g.comps["1:PlatformShooterPlayerComponent"]
     # as in the real game (run 5): forced fire works; aim stays ours only with controls off
-    if c and c.enabled == False and shooter and shooter.mForceFireOnNextUpdate:  # the fake wand: 4 damage per frame (/25 units)
+    if held and c and c.enabled == False and shooter and shooter.mForceFireOnNextUpdate:  # the fake wand: 4 damage per frame (/25 units)
         g.globals["wand_scanner_dmg"] = str(float(g.globals["wand_scanner_dmg"] or 0) + 4 / 25)
-        omega = g.comps["50:AbilityComponent"].mana_max == 757
+        omega = g.comps["%d:AbilityComponent" % held].mana_max == 757
         g.projectiles = 5000 if omega and f % 700 > 300 else 3
     else:
         g.projectiles = 0
@@ -67,8 +70,9 @@ first = [r for r in bolt if r[1] == "1"]
 assert len(first) == 11 and float(first[1][3]) == 240, first  # 60 frames x 4 damage
 assert sum(float(r[3]) for r in first) == 600 * 4 and float(first[0][4]) == 0, first  # damage seen a frame late lands in the tail bin
 assert any(r[0] == "Omega loop" and r[2] == "WATCHDOG" for r in rows), "runaway aborted by watchdog"
-cards = list(g.kids[50].values())
-assert len(cards) == 6 and 40 not in cards, cards  # the Omega build replaced the old cards on the same wand
+cards = list(g.kids[g.comps["1:Inventory2Component"].mActiveItem].values())
+assert len(cards) == 6, cards  # the last wand carries the Omega build
+assert all(r[8] == "1" for r in rows[1:] if r[2] != "WATCHDOG"), "wand in hand in every logged second"
 assert [g.comps["%d:ItemComponent" % c].inventory_slot for c in cards] == list(range(6))  # slot x, in order
 assert g.exited, "closes the game when done"
 print("lab ok")

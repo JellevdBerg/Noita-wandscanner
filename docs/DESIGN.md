@@ -107,11 +107,12 @@ and disables every mod except this one, runs `noita.exe` and waits, then restore
 `lab.ps1` writes `lab_mode.txt` next to the mod; `init.lua` then skips the panel and runs `LabMode.update`.
 The player is pinned 400 px above the spawn with `ControlsComponent` disabled so the lab drives fire and aim,
 HP is refilled every frame (lost HP = self-damage), and the game's `dummy_target.xml` (HP 1e30) is pinned
-100 px to the right with `damage_hook.lua`. Each queued build is written onto the wand you spawn holding (a wand the mod creates is
-never really equipped), 600 frames
+100 px to the right with `damage_hook.lua`. Each queued build gets a fresh wand (`lab_wand.xml`, cards added before pickup), equipped by setting
+`mActiveItem` and clearing `mActualActiveItem` until the game reports it in hand (rewriting the held wand's
+cards never changed what it fired), then 600 frames
 of fire plus 60 of tail, logged per second to `<Noita>/wand_scanner_data/calibration.csv`. Watchdog: more
 than 3000 projectiles aborts the run. Fire is forced with `PlatformShooterPlayerComponent.mForceFireOnNextUpdate`
 with `ControlsComponent` disabled (pressing fire through ControlsComponent never fired; with controls on, the
-real mouse moves the aim). Spells are swapped like [apply]: detach, add, set slot, `mForceRefresh`. When the
+real mouse moves the aim). When the
 queue is done the game closes itself (`os.exit`) so the launcher restores the saves.
 Test: `tests/test_lab.py` (fake engine).
