@@ -2,7 +2,7 @@
 -- Simulation uses Noita's own gun.lua (see wandsim.lua); results show in an overlay.
 dofile_once("mods/wand_scanner/wandsim.lua")
 
-local VERSION = "v11" -- shown in the panel title, so you can tell which build is loaded
+local VERSION = "v12" -- shown in the panel title, so you can tell which build is loaded
 
 local INTERVAL = 30        -- frames between inventory checks (~0.5 s)
 local EVALS = 1500         -- search steps per wand
@@ -253,6 +253,7 @@ local results, progress = nil, nil
 local results_state = nil -- the inventory scan the current results were computed from
 local recipes = {}        -- known combos you have (or are one spell short of)
 local exclude_explosives = false -- toggled from the panel
+local exclude_limited = false    -- toggled from the panel: skip spells with limited uses
 local job, last_sig = nil, nil
 
 local function search_all(state)
@@ -271,6 +272,13 @@ local function search_all(state)
     local kept = {}
     for _, s in ipairs(pool) do
       if not WandSim.is_physics_explosive(s.id) then kept[#kept + 1] = s end
+    end
+    pool = kept
+  end
+  if exclude_limited then
+    local kept = {}
+    for _, s in ipairs(pool) do
+      if (s.uses or -1) < 0 then kept[#kept + 1] = s end
     end
     pool = kept
   end
@@ -371,7 +379,8 @@ local function draw()
     or (results and "ready" or "waiting for a run")
   local title = "Wands " .. VERSION .. "  -  " .. status
   local toggle = (exclude_explosives and "[x]" or "[ ]") .. " no bombs/TNT"
-  local w = text_w(title) + 12 + text_w(toggle, 1)
+  local toggle2 = (exclude_limited and "[x]" or "[ ]") .. " no limited uses"
+  local w = text_w(title) + 12 + text_w(toggle, 1) + 8 + text_w(toggle2, 1)
   local lines = {}
   for i, r in ipairs(rows) do
     local head = string.format("%s:  %s -> %s DPS", r.wand.name, num(r.now), r.best and num(r.best.dps) or "-")
@@ -407,6 +416,10 @@ local function draw()
   if GuiButton(gui, nid(), x0 + w - PAD - text_w(toggle, 1), y0 + PAD - 1, toggle) then
     exclude_explosives = not exclude_explosives
     last_sig, job, results, progress = nil, nil, nil, nil -- re-run the search on the next check
+  end
+  if GuiButton(gui, nid(), x0 + w - PAD - text_w(toggle, 1) - 8 - text_w(toggle2, 1), y0 + PAD - 1, toggle2) then
+    exclude_limited = not exclude_limited
+    last_sig, job, results, progress = nil, nil, nil, nil
   end
 
   -- Best wand = highest reachable DPS, predicted or measured (measured keeps growing mid-fight).

@@ -147,6 +147,18 @@ out = check_layout()
 assert not any("bomb.png" in c for c in out), [c for c in out if "bomb.png" in c]
 print("toggle ok")
 
+# Toggle "no limited uses" (with bombs allowed again): Bomb has 3 charges, so it must still be gone.
+for label, want in (("no bombs", "[ ] no bombs"), ("no limited", "[x] no limited")):
+    g.click = label
+    for f in range(f + 1, f + 5000):
+        g.frame = f
+        g.OnWorldPostUpdate()
+        if any(want in c for c in calls()) and any("ready" in c for c in calls()):
+            break
+out = check_layout()
+assert not any("bomb.png" in c for c in out), [c for c in out if "bomb.png" in c]
+print("limited toggle ok")
+
 # Apply: click the first "[apply]" and check the real entities moved into the suggested order.
 btn = next(c for c in out if c.startswith("BUTTON") and "[apply]" in c)
 by = float(btn.split()[1].split(",")[1]) + 1  # the button sits 1px above its row's text
