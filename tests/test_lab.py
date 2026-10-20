@@ -47,9 +47,9 @@ for f in range(1, 30000):
     g.frame = f
     lab.pre_update(1)
     lab.update(1)
-    c = g.comps[ctl]
-    # like run 1 in the real game: nothing fires while ControlsComponent is disabled
-    if c and c.mButtonDownFire and c.enabled:  # the fake wand: 4 damage per frame (/25 units)
+    c, shooter = g.comps[ctl], g.comps["1:PlatformShooterPlayerComponent"]
+    # pretend only forced fire with controls on works (unknown in the real game)
+    if c and c.enabled and shooter and shooter.mForceFireOnNextUpdate:  # the fake wand: 4 damage per frame (/25 units)
         g.globals["wand_scanner_dmg"] = str(float(g.globals["wand_scanner_dmg"] or 0) + 4 / 25)
         omega = g.comps["1:Inventory2Component"].mActiveItem >= 130  # the Omega runs come last
         g.projectiles = 5000 if omega and f % 700 > 300 else 3
@@ -61,10 +61,10 @@ assert rows[0][:4] == ["build", "rep", "method", "second"], rows[0]
 bolt = [r for r in rows[1:] if r[0] == "Bolt staff" and r[1] != "0"]  # rep 0 = probe runs
 assert len({r[1] for r in bolt}) == 10, "10 repeats"
 first = [r for r in bolt if r[1] == "1"]
-assert all(float(r[4]) == 0 for r in rows[1:] if r[2] == "disabled"), "disabled probe fires nothing"
+assert all(float(r[4]) == 0 for r in rows[1:] if r[2] == "force_disabled"), "probe that doesn't fire logs nothing"
 assert len(first) == 11 and float(first[1][4]) == 240, first  # 60 frames x 4 damage
 assert sum(float(r[4]) for r in first) == 600 * 4 and float(first[0][5]) == 0, first  # damage seen a frame late lands in the tail bin
 assert any(r[0] == "Omega loop" and r[3] == "WATCHDOG" for r in rows), "runaway aborted by watchdog"
-assert all(r[2] == "pre" for r in rows[1:] if r[0] == "Omega loop"), "queue uses the first method that fired"
+assert all(r[2] == "force" for r in rows[1:] if r[0] == "Omega loop"), "queue uses the first method that fired"
 assert g.exited, "closes the game when done"
 print("lab ok")

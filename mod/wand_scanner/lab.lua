@@ -19,8 +19,10 @@ local OMEGA = { name = "Omega loop", capacity = 10, spells_per_cast = 1, shuffle
   spells = { { id = "TENTACLE_TIMER" }, { id = "HEAVY_SHOT" }, { id = "SPELLS_TO_POWER" },
     { id = "DIVIDE_3" }, { id = "OMEGA" }, { id = "MISSILE", uses = 19 } } }
 -- Ways to make the player fire without input; the probes try each and the rest of the queue uses
--- the first one that produced projectiles or spent mana. ("disabled" alone fired nothing in run 1.)
-M.METHODS = { "disabled", "pre", "pre_click" }
+-- the first one that produced projectiles or spent mana. Pressing fire through ControlsComponent fired
+-- nothing in runs 1-2 (wand held, no mana spent), so these use PlatformShooterPlayerComponent's
+-- mForceFireOnNextUpdate, with your controls left on or switched off.
+M.METHODS = { "force", "force_disabled" }
 M.QUEUE = {}
 for _, m in ipairs(M.METHODS) do M.QUEUE[#M.QUEUE + 1] = { build = BOLT, rep = 0, method = m, fire = 180 } end -- rep 0 = probe
 for rep = 1, 10 do M.QUEUE[#M.QUEUE + 1] = { build = BOLT, rep = rep } end
@@ -119,20 +121,15 @@ local function press(player)
   if not r then return end
   local c = comp(player, "ControlsComponent")
   local firing = st.frame <= r.job.fire
-  ComponentSetValue2(c, "enabled", r.method ~= "disabled")
-  ComponentSetValue2(c, "mButtonDownFire", firing)
-  if firing then ComponentSetValue2(c, "mButtonFrameFire", GameGetFrameNum()) end
-  if r.method == "pre_click" then
-    ComponentSetValue2(c, "mButtonDownLeftClick", firing)
-    if firing then ComponentSetValue2(c, "mButtonFrameLeftClick", GameGetFrameNum()) end
-  end
+  ComponentSetValue2(c, "enabled", r.method ~= "force_disabled")
+  ComponentSetValue2(comp(player, "PlatformShooterPlayerComponent"), "mForceFireOnNextUpdate", firing)
   ComponentSetValue2(c, "mAimingVector", 100, 0)
   ComponentSetValue2(c, "mAimingVectorNormalized", 1, 0)
   ComponentSetValue2(c, "mMousePosition", st.px + 100, st.py)
 end
 
 function M.pre_update(player)
-  if st and st.run and st.run.method ~= "disabled" then press(player) end
+  if st and st.run and st.run.method ~= "force_disabled" then press(player) end
 end
 
 function M.update(player)
