@@ -101,3 +101,12 @@ doubled for 3 seconds in a row (thresholds to be refit on calibration data). Tes
 Zips `save00` and `save_shared` to `D:\NoitaBackups\` (keeps 5), sets `application_pause_when_unfocused="0"`
 and disables every mod except this one, runs `noita.exe` and waits, then restores the zip. A marker file
 (`LAB_ACTIVE.txt`) makes the next start restore first if a session was cut short. Log: `lab_launcher.log`.
+
+## Lab mode (`lab.lua`, `lab.bat calibrate`)
+
+`lab.ps1` writes `lab_mode.txt` next to the mod; `init.lua` then skips the panel and runs `LabMode.update`.
+The player is pinned 400 px above the spawn with `ControlsComponent` disabled so the lab drives fire and aim,
+HP is refilled every frame (lost HP = self-damage), and the game's `dummy_target.xml` (HP 1e30) is pinned
+100 px to the right with `damage_hook.lua`. Each queued build gets a fresh wand (`lab_wand.xml`), 600 frames
+of fire plus 60 of tail, logged per second to `<Noita>/wand_scanner_data/calibration.csv`. Watchdog: more
+than 3000 projectiles aborts the run. Test: `tests/test_lab.py` (fake engine).

@@ -1,8 +1,10 @@
 -- Wand Scanner: finds high-DPS spell arrangements for your wands, entirely in-game.
 -- Simulation uses Noita's own gun.lua (see wandsim.lua); results show in an overlay.
 dofile_once("mods/wand_scanner/wandsim.lua")
+dofile_once("mods/wand_scanner/lab.lua")
+local LAB = LabMode.active() -- lab session started by lab.bat: no panel, run the lab instead
 
-local VERSION = "v12" -- shown in the panel title, so you can tell which build is loaded
+local VERSION = "v13" -- shown in the panel title, so you can tell which build is loaded
 
 local INTERVAL = 30        -- frames between inventory checks (~0.5 s)
 local EVALS = 1500         -- search steps per wand
@@ -461,6 +463,11 @@ end
 -- Main loop
 ---------------------------------------------------------------------------
 function OnWorldPostUpdate()
+  if LAB then
+    local player = (EntityGetWithTag("player_unit") or {})[1]
+    if player and GameGetFrameNum() > 180 then LabMode.update(player) end
+    return
+  end
   if GameGetFrameNum() % INTERVAL == 0 then
     local state = scan()
     if state then
