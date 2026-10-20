@@ -1,6 +1,6 @@
 -- Lab mode (started by `lab.bat calibrate`): fires fixed builds at a dummy in the real engine and logs
--- damage per second to wand_scanner_data/calibration.csv. Calibration run 1: does auto-fire work,
--- how fast does the game run, how noisy is a repeated build, what does the Omega loop look like.
+-- damage per second to wand_scanner_data/calibration.csv. Calibration: which way of auto-firing works
+-- (probes first), how noisy is a repeated build, what does the Omega loop look like.
 local M = {}
 
 M.FLAG = "mods/wand_scanner/lab_mode.txt" -- written by lab.ps1, removed when the session ends
@@ -18,7 +18,11 @@ local OMEGA = { name = "Omega loop", capacity = 10, spells_per_cast = 1, shuffle
   cast_delay = 10, spread = 0, speed_mult = 1, mana_max = 757, mana_charge = 300,
   spells = { { id = "TENTACLE_TIMER" }, { id = "HEAVY_SHOT" }, { id = "SPELLS_TO_POWER" },
     { id = "DIVIDE_3" }, { id = "OMEGA" }, { id = "MISSILE", uses = 19 } } }
+-- Ways to make the player fire without input; the probes try each and the rest of the queue uses
+-- the first one that produced projectiles or spent mana. ("disabled" alone fired nothing in run 1.)
+M.METHODS = { "disabled", "pre", "pre_click" }
 M.QUEUE = {}
+for _, m in ipairs(M.METHODS) do M.QUEUE[#M.QUEUE + 1] = { build = BOLT, rep = 0, method = m, fire = 180 } end -- rep 0 = probe
 for rep = 1, 10 do M.QUEUE[#M.QUEUE + 1] = { build = BOLT, rep = rep } end
 for rep = 1, 3 do M.QUEUE[#M.QUEUE + 1] = { build = OMEGA, rep = rep } end
 
@@ -81,8 +85,8 @@ local function setup(player)
   local dmg = comp(player, "DamageModelComponent")
   ComponentSetValue2(dmg, "max_hp", 4e6)
   ComponentSetValue2(dmg, "hp", 4e6)
-  ComponentSetValue2(comp(player, "ControlsComponent"), "enabled", false) -- we drive fire and aim
-  log_row({ "build", "rep", "second", "damage", "self_damage", "projectiles_peak", "frames", "wall_s" })
+  log_row({ "build", "rep", "method", "second", "damage", "self_damage", "projectiles_peak", "frames", "wall_s",
+    "held", "mana_min" })
   GamePrint("[lab] calibration started: " .. #M.QUEUE .. " runs, don't touch anything")
 end
 
@@ -100,9 +104,35 @@ end
 local function finish_bin(force)
   local r = st.run
   if r.bin_frames < 60 and not force then return end
-  log_row({ r.job.build.name, r.job.rep, r.second, string.format("%.6g", r.bin_dmg),
-    string.format("%.6g", r.bin_self), r.bin_peak, r.bin_frames, string.format("%.3f", os.clock() - r.bin_wall) })
+  log_row({ r.job.build.name, r.job.rep, r.method, r.second, string.format("%.6g", r.bin_dmg),
+    string.format("%.6g", r.bin_self), r.bin_peak, r.bin_frames, string.format("%.3f", os.clock() - r.bin_wall),
+    r.bin_held, string.format("%.4g", r.bin_mana) })
+  if r.bin_peak > 0 or r.bin_mana < r.job.build.mana_max - 1 then r.fired = true end
   r.second, r.bin_dmg, r.bin_self, r.bin_peak, r.bin_frames, r.bin_wall = r.second + 1, 0, 0, 0, 0, os.clock()
+  r.bin_held, r.bin_mana = 0, math.huge
+end
+
+-- Press fire and aim at the dummy. Called after the world update, and also before it for the methods that
+-- leave ControlsComponent enabled (the game rewrites it from your real input each frame).
+local function press(player)
+  local r = st and st.run
+  if not r then return end
+  local c = comp(player, "ControlsComponent")
+  local firing = st.frame <= r.job.fire
+  ComponentSetValue2(c, "enabled", r.method ~= "disabled")
+  ComponentSetValue2(c, "mButtonDownFire", firing)
+  if firing then ComponentSetValue2(c, "mButtonFrameFire", GameGetFrameNum()) end
+  if r.method == "pre_click" then
+    ComponentSetValue2(c, "mButtonDownLeftClick", firing)
+    if firing then ComponentSetValue2(c, "mButtonFrameLeftClick", GameGetFrameNum()) end
+  end
+  ComponentSetValue2(c, "mAimingVector", 100, 0)
+  ComponentSetValue2(c, "mAimingVectorNormalized", 1, 0)
+  ComponentSetValue2(c, "mMousePosition", st.px + 100, st.py)
+end
+
+function M.pre_update(player)
+  if st and st.run and st.run.method ~= "disabled" then press(player) end
 end
 
 function M.update(player)
@@ -125,34 +155,43 @@ function M.update(player)
     if st.frame < 0 then return end
     st.i = st.i + 1
     local job = M.QUEUE[st.i]
-    if not job then
-      if not st.done then GamePrint("[lab] calibration done: you can quit now"); st.done = true end
+    local method = job and (job.method or st.method)
+    if not job or not method then
+      if not st.done then
+        GamePrint(job and "[lab] no way of auto-firing worked: quit and send the CSV"
+          or "[lab] calibration done: closing the game")
+        st.done = true
+      end
+      -- Close the game so lab.bat restores your saves; unattended runs need this. Lab saves are thrown away.
+      if st.frame > 180 and os and os.exit then os.exit(0) end
       return
     end
     if st.wand then EntityKill(st.wand) end
     kill_projectiles()
     new_dummy()
     st.wand = make_wand(job.build, player)
-    st.run = { job = job, second = 1, bin_dmg = 0, bin_self = 0, bin_peak = 0, bin_frames = 0, bin_wall = os.clock() }
+    st.run = { job = { build = job.build, rep = job.rep, fire = job.fire or FIRE }, method = method, probe = job.method,
+      second = 1, bin_dmg = 0, bin_self = 0, bin_peak = 0, bin_frames = 0, bin_wall = os.clock(),
+      bin_held = 0, bin_mana = math.huge }
     st.frame = 0
     return
   end
 
-  local firing = st.frame <= FIRE
-  local c = comp(player, "ControlsComponent")
-  ComponentSetValue2(c, "mButtonDownFire", firing)
-  if firing then ComponentSetValue2(c, "mButtonFrameFire", GameGetFrameNum()) end
-  ComponentSetValue2(c, "mAimingVector", 100, 0)
-  ComponentSetValue2(c, "mAimingVectorNormalized", 1, 0)
-  ComponentSetValue2(c, "mMousePosition", st.px + 100, st.py)
+  press(player)
+  if ComponentGetValue2(comp(player, "Inventory2Component"), "mActiveItem") == st.wand then r.bin_held = 1 end
+  r.bin_mana = math.min(r.bin_mana, ComponentGetValue2(comp(st.wand, "AbilityComponent"), "mana"))
 
   local n = #(EntityGetWithTag("projectile") or {})
   r.bin_dmg, r.bin_self = r.bin_dmg + math.max(delta, 0), r.bin_self + lost
   r.bin_peak, r.bin_frames = math.max(r.bin_peak, n), r.bin_frames + 1
   local runaway = n > MAX_PROJECTILES
-  if runaway or st.frame >= FIRE + TAIL then
+  if runaway or st.frame >= r.job.fire + TAIL then
     finish_bin(true)
-    if runaway then log_row({ r.job.build.name, r.job.rep, "WATCHDOG", "", "", n, "", "" }) end
+    if runaway then log_row({ r.job.build.name, r.job.rep, r.method, "WATCHDOG", "", "", n, "", "", "", "" }) end
+    if r.probe and r.fired and not st.method then
+      st.method = r.method
+      GamePrint("[lab] auto-fire works with method: " .. r.method)
+    end
     kill_projectiles()
     st.run, st.frame = nil, -SETTLE
   else

@@ -38,13 +38,18 @@ function GlobalsGetValue(k, d) return globals[k] or d end
 function GlobalsSetValue(k, v) globals[k] = v end
 function GameGetFrameNum() return frame end
 function GamePrint(s) print(s) end
+exited = false
+os.exit = function() exited = true end
 ''')
 g = L.globals()
 ctl = "1:ControlsComponent"
 for f in range(1, 30000):
     g.frame = f
+    lab.pre_update(1)
     lab.update(1)
-    if g.comps[ctl] and g.comps[ctl].mButtonDownFire:  # the fake wand: 4 damage per frame (/25 units)
+    c = g.comps[ctl]
+    # like run 1 in the real game: nothing fires while ControlsComponent is disabled
+    if c and c.mButtonDownFire and c.enabled:  # the fake wand: 4 damage per frame (/25 units)
         g.globals["wand_scanner_dmg"] = str(float(g.globals["wand_scanner_dmg"] or 0) + 4 / 25)
         omega = g.comps["1:Inventory2Component"].mActiveItem >= 130  # the Omega runs come last
         g.projectiles = 5000 if omega and f % 700 > 300 else 3
@@ -52,11 +57,14 @@ for f in range(1, 30000):
         g.projectiles = 0
 
 rows = list(csv.reader(open("wand_scanner_data/calibration.csv")))
-assert rows[0][:3] == ["build", "rep", "second"], rows[0]
-bolt = [r for r in rows[1:] if r[0] == "Bolt staff"]
+assert rows[0][:4] == ["build", "rep", "method", "second"], rows[0]
+bolt = [r for r in rows[1:] if r[0] == "Bolt staff" and r[1] != "0"]  # rep 0 = probe runs
 assert len({r[1] for r in bolt}) == 10, "10 repeats"
 first = [r for r in bolt if r[1] == "1"]
-assert len(first) == 11 and float(first[1][3]) == 240, first  # 60 frames x 4 damage
-assert sum(float(r[3]) for r in first) == 600 * 4 and float(first[0][4]) == 0, first  # damage seen a frame late lands in the tail bin
-assert any(r[0] == "Omega loop" and r[2] == "WATCHDOG" for r in rows), "runaway aborted by watchdog"
+assert all(float(r[4]) == 0 for r in rows[1:] if r[2] == "disabled"), "disabled probe fires nothing"
+assert len(first) == 11 and float(first[1][4]) == 240, first  # 60 frames x 4 damage
+assert sum(float(r[4]) for r in first) == 600 * 4 and float(first[0][5]) == 0, first  # damage seen a frame late lands in the tail bin
+assert any(r[0] == "Omega loop" and r[3] == "WATCHDOG" for r in rows), "runaway aborted by watchdog"
+assert all(r[2] == "pre" for r in rows[1:] if r[0] == "Omega loop"), "queue uses the first method that fired"
+assert g.exited, "closes the game when done"
 print("lab ok")

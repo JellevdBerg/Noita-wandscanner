@@ -4,7 +4,7 @@ dofile_once("mods/wand_scanner/wandsim.lua")
 dofile_once("mods/wand_scanner/lab.lua")
 local LAB = LabMode.active() -- lab session started by lab.bat: no panel, run the lab instead
 
-local VERSION = "v13" -- shown in the panel title, so you can tell which build is loaded
+local VERSION = "v14" -- shown in the panel title, so you can tell which build is loaded
 
 local INTERVAL = 30        -- frames between inventory checks (~0.5 s)
 local EVALS = 1500         -- search steps per wand
@@ -462,6 +462,12 @@ end
 ---------------------------------------------------------------------------
 -- Main loop
 ---------------------------------------------------------------------------
+function OnWorldPreUpdate()
+  if not LAB then return end
+  local player = (EntityGetWithTag("player_unit") or {})[1]
+  if player and GameGetFrameNum() > 180 then LabMode.pre_update(player) end
+end
+
 function OnWorldPostUpdate()
   if LAB then
     local player = (EntityGetWithTag("player_unit") or {})[1]

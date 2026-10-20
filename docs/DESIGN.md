@@ -109,4 +109,7 @@ The player is pinned 400 px above the spawn with `ControlsComponent` disabled so
 HP is refilled every frame (lost HP = self-damage), and the game's `dummy_target.xml` (HP 1e30) is pinned
 100 px to the right with `damage_hook.lua`. Each queued build gets a fresh wand (`lab_wand.xml`), 600 frames
 of fire plus 60 of tail, logged per second to `<Noita>/wand_scanner_data/calibration.csv`. Watchdog: more
-than 3000 projectiles aborts the run. Test: `tests/test_lab.py` (fake engine).
+than 3000 projectiles aborts the run. The queue starts with short probes of different ways to press fire
+(ControlsComponent disabled, or enabled and written before and after the world update) and uses the first
+that fires. When the queue is done the game closes itself (`os.exit`) so the launcher restores the saves.
+Test: `tests/test_lab.py` (fake engine).
